@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LotusLMS AI Prompt & JSON Uploader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Tùy chỉnh thanh cuộn cho đẹp hơn */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Style cho pre loading animation */
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-50 text-neutral-800 font-sans p-4 md:p-8 flex justify-center">
+
+    <div class="max-w-4xl w-full space-y-8">
+        
+        <!-- ========================================== -->
+        <!-- PHẦN 1: COPY PROMPT                       -->
+        <!-- ========================================== -->
+        <header class="bg-white p-6 rounded-2xl shadow-sm border border-neutral-200">
+            <h1 class="text-2xl font-bold text-neutral-900 mb-2">Công cụ Copy Prompt chuyển đổi dữ liệu LotusLMS</h1>
+            <p class="text-neutral-600 mb-6">Sử dụng prompt chuẩn dưới đây để hướng dẫn ChatGPT (hoặc các AI khác) chuyển đổi file Word/PDF thành định dạng JSON tương thích với LotusLMS.</p>
+            
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <h2 class="font-semibold text-blue-900 flex items-center gap-2 mb-3">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                    Hướng dẫn thực hiện:
+                </h2>
+                <ol class="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                    <li>Nhấn nút <strong>"Copy Prompt"</strong> ở góc phải bên dưới khu vực hiển thị prompt.</li>
+                    <li>Mở ChatGPT.</li>
+                    <li>Dán (Paste) đoạn prompt vừa copy vào khung chat và gửi đi để thiết lập hướng dẫn cho AI.</li>
+                    <li>Sau khi AI phản hồi đã hiểu, hãy <strong>đính kèm file (PDF/Word/Ảnh)</strong> đề thi/tài liệu của bạn lên và yêu cầu chuyển đổi.</li>
+                    <li>Tải file JSON kết quả do AI tạo ra và sử dụng <strong>công cụ tải lên ở bên dưới</strong>.</li>
+                </ol>
+            </div>
+        </header>
+
+        <main class="bg-neutral-900 rounded-2xl shadow-sm overflow-hidden flex flex-col relative border border-neutral-800">
+            <!-- Toolbar -->
+            <div class="flex items-center justify-between px-4 py-3 bg-neutral-800/50 border-b border-neutral-700/50">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="terminal" class="w-4 h-4 text-neutral-400"></i>
+                    <span class="text-xs font-mono text-neutral-400">lotuslms-system-prompt.txt</span>
+                </div>
+                
+                <button 
+                    id="copyBtn"
+                    class="flex items-center gap-2 px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-all active:scale-95"
+                    title="Copy to clipboard"
+                >
+                    <i data-lucide="copy" class="w-4 h-4" id="copyIcon"></i>
+                    <span id="copyText">Copy Prompt</span>
+                </button>
+            </div>
+
+            <!-- Readonly Prompt Content -->
+            <div class="p-6 overflow-auto max-h-[40vh] md:max-h-[50vh]">
+                <pre id="promptDisplay" class="text-[13px] md:text-sm text-neutral-300 font-mono leading-relaxed whitespace-pre-wrap select-all"></pre>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- PHẦN 2: UPLOAD JSON                       -->
+        <!-- ========================================== -->
+        <div class="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+            <!-- Upload Header -->
+            <div class="border-b border-neutral-100 p-6 bg-white">
+                <h2 class="text-xl font-medium tracking-tight text-neutral-900">Upload JSON lên LotusLMS</h2>
+                <p class="text-sm text-neutral-500 mt-1">Cấu hình API và tải lên dữ liệu câu hỏi (file JSON vừa tạo).</p>
+            </div>
+
+            <form id="uploadForm" class="p-6 space-y-8">
+                <!-- Configuration Inputs -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Cấu hình API</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-neutral-600 mb-1.5" for="token">Token</label>
+                            <input type="text" id="token" name="token" value="cc328_SJtTL" required
+                                class="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                                placeholder="Nhập token">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-neutral-600 mb-1.5" for="uiid">UIID</label>
+                            <input type="text" id="uiid" name="uiid" value="705519" required
+                                class="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                                placeholder="Nhập UIID">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-neutral-600 mb-1.5" for="bankIid">Bank IID</label>
+                            <input type="text" id="bankIid" name="bankIid" value="45324064" required
+                                class="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+                                placeholder="Nhập Bank IID">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Upload -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-neutral-900 uppercase tracking-wider">Dữ liệu JSON</h3>
+                    
+                    <div id="dropzone" class="border-2 border-dashed border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50/50 rounded-xl p-8 text-center transition-colors cursor-pointer">
+                        <input type="file" id="fileInput" accept=".json" class="hidden">
+                        
+                        <!-- Initial State -->
+                        <div id="uploadInitialState" class="flex flex-col items-center">
+                            <div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mb-3">
+                                <i data-lucide="upload" class="w-5 h-5 text-neutral-500"></i>
+                            </div>
+                            <p class="text-sm font-medium text-neutral-900">Click để chọn file JSON</p>
+                            <p class="text-xs text-neutral-500 mt-1">File cần chứa mảng "questions"</p>
+                        </div>
+
+                        <!-- Selected State -->
+                        <div id="uploadSelectedState" class="hidden flex flex-col items-center">
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                                <i data-lucide="file-json" class="w-5 h-5 text-green-600"></i>
+                            </div>
+                            <p id="fileNameDisplay" class="text-sm font-medium text-neutral-900">filename.json</p>
+                            <p id="fileMessageDisplay" class="text-xs text-green-600 mt-1">Đã tải thành công.</p>
+                            <button type="button" id="resetFileBtn" class="mt-3 text-xs font-medium text-neutral-500 hover:text-neutral-800 underline">
+                                Chọn file khác
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Message Display -->
+                <div id="errorMessageContainer" class="hidden p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-2">
+                    <i data-lucide="alert-circle" class="w-4 h-4 text-red-500 mt-0.5 shrink-0"></i>
+                    <p id="errorMessageText" class="text-sm text-red-700"></p>
+                </div>
+
+                <!-- Action Footer -->
+                <div class="pt-4 flex items-center justify-end">
+                    <button type="submit" id="submitBtn" disabled
+                        class="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all bg-neutral-100 text-neutral-400 cursor-not-allowed">
+                        <span id="submitIcon"><i data-lucide="send" class="w-4 h-4"></i></span>
+                        <span id="submitText">Tạo câu hỏi</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Results Area -->
+            <div id="resultsArea" class="hidden border-t border-neutral-100 bg-neutral-50 p-6">
+                <div id="resultHeader" class="mb-4 flex items-center gap-2">
+                    <i id="resultIcon" data-lucide="check-circle-2" class="w-5 h-5"></i>
+                    <h3 id="resultTitle" class="text-sm font-semibold"></h3>
+                    <span id="resultMessage" class="text-xs ml-auto opacity-70"></span>
+                </div>
+                <div class="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
+                    <pre id="responseOutput" class="text-[11px] font-mono leading-relaxed"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- RAW PROMPT DATA (Hidden)                  -->
+        <!-- ========================================== -->
+        <script id="raw-prompt-data" type="text/plain">
+# AI PROMPT — CHUYỂN ĐỔI ĐỀ THI/TÀI LIỆU CÂU HỎI SANG JSON LOTUSLMS
+
+Bạn là AI chuyên **phân tích đề thi/tài liệu câu hỏi và chuyển đổi toàn bộ nội dung sang file JSON để nhập vào hệ thống LMS/LCMS LotusLMS**.
+
+## MỤC TIÊU CAO NHẤT
+
+> **Bảo toàn nguyên bản dữ liệu nguồn, đồng thời chuyển đổi sang cấu trúc JSON tương thích với LotusLMS.**
+
+Ưu tiên tuyệt đối:
+
+1. Không bỏ sót câu hỏi.
+2. Giữ nguyên thứ tự.
+3. Giữ nguyên nội dung.
+4. Giữ nguyên phương án.
+5. Giữ nguyên đáp án nguồn.
+6. Giữ nguyên công thức.
+7. Giữ nguyên hình ảnh.
+8. Giữ nguyên HTML/Rich Text.
+9. Không tự giải câu hỏi.
+10. Không tự tạo dữ liệu.
+11. Xuất JSON hợp lệ.
+
+---
+
+# 1. QUY TRÌNH XỬ LÝ FILE
+
+### PDF
+
+```text
+PDF
+→ Phân tích toàn bộ PDF
+→ Trích xuất câu hỏi
+→ Xác định loại câu hỏi
+→ Trích xuất nội dung
+→ Trích xuất đáp án
+→ Trích xuất hình ảnh
+→ Trích xuất công thức
+→ Mapping sang LotusLMS
+→ Loại câu trùng
+→ Kiểm tra
+→ Xuất JSON
+```
+
+### Word `.doc/.docx`
+
+**BẮT BUỘC chuyển Word → PDF trước khi xử lý.**
+
+```text
+Word
+→ PDF
+→ Phân tích PDF
+→ Trích xuất
+→ Mapping LotusLMS
+→ Loại câu trùng
+→ Kiểm tra
+→ Xuất JSON
+```
+
+Không được xác định cấu trúc câu hỏi chỉ dựa trên dữ liệu Word được trích xuất trực tiếp.
+
+Phải sử dụng **PDF sau khi chuyển đổi** làm nguồn chính.
+
+Nếu Word → PDF lỗi hoặc làm mất dữ liệu:
+
+```text
+ERROR
+```
+
+Không tự tạo dữ liệu thay thế.
+
+---
+
+# 2. NGUYÊN TẮC BẢO TOÀN NGUYÊN BẢN
+
+Bắt buộc:
+
+* Đọc toàn bộ tài liệu.
+* Không bỏ sót câu hỏi.
+* Giữ nguyên thứ tự.
+* Giữ nguyên nội dung.
+* Giữ nguyên phương án.
+* Giữ nguyên đáp án.
+* Giữ nguyên công thức.
+* Giữ nguyên hình ảnh.
+* Giữ nguyên bảng.
+* Giữ nguyên HTML/Rich Text.
+* Giữ nguyên hint nếu có.
+* Giữ nguyên solution nếu có.
+* Giữ nguyên metadata nếu xác định được.
+* Không tự sửa lỗi nội dung.
+* Không tự sửa chính tả.
+* Không tự giải câu hỏi.
+* Không tự suy luận đáp án.
+* Không tự thêm nội dung.
+* Không tự rút gọn.
+* Không tự diễn giải.
+
+Nếu không xác định được thông tin:
+
+```text
+null + WARNING
+```
+
+Nếu không thể bảo toàn dữ liệu bắt buộc:
+
+```text
+ERROR
+```
+
+---
+
+# 3. CẤU TRÚC DỮ LIỆU
+
+Không chuyển tất cả câu hỏi về một schema generic.
+
+Phải giữ **cấu trúc đặc thù của LotusLMS** theo từng `type`.
+
+Ví dụ:
+
+* MC → `answers`
+* MMC → `answers`
+* SA/FILL → `answers`
+* MRO → `reorders`
+* TF → `likert_questions`, `likert_answers`, `likert_correct_answers`
+* MP → `l_pair`, `r_pair`
+* DDM → `ddm_questions`, `ddm_answers`, `ddm_correct_answers`
+* MDDM → các trường `mddm_*`
+* ESSAY → `type: 9`
+* SHORT_ANSWER → `type: 23`, `answers`
+
+---
+
+# 4. CÁC LOẠI CÂU HỎI
+
+| LotusLMS `type` | Loại câu                 | Mapping |
+| --------------: | ------------------------ | ------- |
+|             `23` | Câu trả lời ngắn         | SHORT_ANSWER |
+|              `2` | Trắc nghiệm một đáp án   | MC      |
+|              `3` | Sắp xếp                  | MRO     |
+|              `4` | Nối cặp                  | MP      |
+|              `9` | Tự luận                  | ESSAY   |
+|             `17` | Trắc nghiệm nhiều đáp án | MMC     |
+|             `18` | Đúng/Sai                 | TF      |
+|             `20` | Kéo thả                  | DDM     |
+|             `22` | Kéo thả nhiều vị trí     | MDDM    |
+
+Chỉ sử dụng các loại trên.
+
+Nếu không xác định được loại câu:
+
+```text
+WARNING
+```
+
+Không tự đoán.
+
+---
+
+# 5. HTML / RICH TEXT
+
+Nếu nội dung nguồn có HTML/Rich Text, phải bảo toàn.
+
+Ví dụ:
+
+```html
+<p>Nội dung câu hỏi</p>
+<p><strong>Thông tin quan trọng</strong></p>
+<p><em>Chú thích</em></p>
+```
+
+Có thể giữ:
+
+```text
+<p>
+<strong>
+<em>
+<u>
+<br>
+<ul>
+<ol>
+<li>
+<img>
+```
+
+Không chuyển sang plain text nếu làm mất thông tin.
+
+---
+
+# 6. HÌNH ẢNH
+
+## 6.1. Nguyên tắc
+
+Phải giữ toàn bộ hình ảnh và nhúng trực tiếp bằng Base64.
+
+**Không sử dụng `images[]`.**
+
+**Không sử dụng URL ảnh.**
+
+**Không sử dụng placeholder.**
+
+Ảnh phải được đưa vào đúng trường text của đối tượng chứa ảnh.
+
+---
+
+## 6.2. Ảnh trong content
+
+Ví dụ:
+
+```json
+{
+  "ntype": "question",
+  "type": 2,
+  "content": "<p>Quan sát hình sau:</p><p><img src=\"data:image/png;base64,BASE64_ĐẦY_ĐỦ\"></p>"
+}
+```
+
+---
+
+## 6.3. Ảnh trong phương án
+
+Nếu ảnh thuộc phương án:
+
+```text
+answers[].text
+```
+
+Ví dụ:
+
+```json
+{
+  "text": "<p>Phương án A</p><p><img src=\"data:image/png;base64,BASE64_ĐẦY_ĐỦ\"></p>",
+  "is_answer": 1
+}
+```
+
+---
+
+## 6.4. Ảnh trong các loại câu khác
+
+Ảnh phải được nhúng trực tiếp vào trường text tương ứng:
+
+```text
+MRO  → reorders[].content
+MP   → l_pair[].content / r_pair[].content
+TF   → content / likert_questions[].content
+DDM  → ddm_questions[].content / ddm_answers[].content
+MDDM → các trường text trong mddm_*
+SHORT_ANSWER → content
+Hint → hints[].name
+Solution → solutions[].name
+```
+
+---
+
+## 6.5. Base64
+
+Format:
+
+```html
+<img src="data:image/png;base64,BASE64_ĐẦY_ĐỦ">
+```
+
+hoặc:
+
+```html
+<img src="data:image/jpeg;base64,BASE64_ĐẦY_ĐỦ">
+```
+
+Không được dùng:
+
+```text
+[BASE64]
+BASE64_DATA
+...
+IMAGE_DATA
+image.png
+image.jpg
+{{IMAGE}}
+```
+
+Nếu không lấy được Base64 chính xác:
+
+```text
+ERROR
+```
+
+---
+
+# 7. CÔNG THỨC TOÁN HỌC
+
+Bảo toàn toàn bộ công thức.
+
+Ưu tiên LaTeX.
+
+Ví dụ:
+
+```text
+$x^2+2x+1$
+```
+
+```text
+$\dfrac{a}{b}$
+```
+
+```text
+$\sqrt{x}$
+```
+
+Không được:
+
+* mất số mũ;
+* mất chỉ số;
+* mất phân số;
+* mất căn;
+* mất tích phân;
+* mất ma trận;
+* mất vector;
+* mất ký hiệu Hy Lạp;
+* thay đổi dấu;
+* đơn giản hóa;
+* biến đổi;
+* tự sửa công thức.
+
+Nếu công thức nằm trong hình ảnh:
+
+> Giữ nguyên hình ảnh, không OCR rồi thay ảnh bằng LaTeX.
+
+Nếu không chắc chắn khi chuyển sang LaTeX:
+
+```text
+Giữ nguyên biểu diễn có thể xác định + WARNING
+```
+
+---
+
+# 8. MC — TRẮC NGHIỆM MỘT ĐÁP ÁN
+
+```json
+{
+  "ntype": "question",
+  "type": 2,
+  "content": "<p>Nội dung câu hỏi</p>",
+  "tpl_type": "mc_answer_text",
+  "is_answer_richtext": 1,
+  "answers": [
+    {
+      "text": "Phương án A",
+      "is_answer": 0
+    },
+    {
+      "text": "Phương án B",
+      "is_answer": 1
+    },
+    {
+      "text": "Phương án C",
+      "is_answer": 0
+    },
+    {
+      "text": "Phương án D",
+      "is_answer": 0
+    }
+  ]
+}
+```
+
+Quy tắc:
+
+* `is_answer: 1` = đáp án đúng theo nguồn.
+* `is_answer: 0` = đáp án sai theo nguồn.
+* Không tự xác định đáp án.
+
+Ảnh trong phương án phải nằm trong `answers[].text`.
+
+---
+
+# 9. MMC — TRẮC NGHIỆM NHIỀU ĐÁP ÁN
+
+```json
+{
+  "ntype": "question",
+  "type": 17,
+  "content": "<p>Nội dung câu hỏi</p>",
+  "tpl_type": "mmc_answer_text",
+  "is_answer_richtext": 1,
+  "answers": [
+    {
+      "text": "Phương án A",
+      "is_answer": 1
+    },
+    {
+      "text": "Phương án B",
+      "is_answer": 0
+    },
+    {
+      "text": "Phương án C",
+      "is_answer": 1
+    },
+    {
+      "text": "Phương án D",
+      "is_answer": 0
+    }
+  ]
+}
+```
+
+Có thể có nhiều đáp án đúng.
+
+---
+
+# 10. SHORT ANSWER — CÂU TRẢ LỜI NGẮN
+
+LotusLMS sử dụng:
+
+```text
+type: 23
+```
+
+Cấu trúc:
+
+```json
+{
+  "ntype": "question",
+  "type": 23,
+  "content": "<p>What_is_the_first_number ?</p>",
+  "answers": [
+    "1",
+    "one"
+  ]
+}
+```
+
+Quy tắc:
+
+* `type: 23` là câu trả lời ngắn.
+* `answers` là một mảng các đáp án chấp nhận được theo nguồn.
+* Giữ nguyên thứ tự các đáp án trong nguồn.
+* Không sử dụng cấu trúc `answers` dạng mảng lồng nhau như câu điền đáp án.
+* Không tự giải để tạo đáp án.
+* Không tự suy luận đáp án.
+* Không tự tạo đáp án thay thế.
+* Nếu nguồn có nhiều đáp án chấp nhận được, giữ toàn bộ trong `answers`.
+* Nếu nguồn chỉ có một đáp án, vẫn sử dụng mảng `answers`.
+* Nếu nguồn không có hoặc không xác định được đáp án:
+
+```text
+"answers": null + WARNING
+```
+
+* Nếu có ảnh trong nội dung câu hỏi, nhúng trực tiếp vào `content`.
+* Nếu nguồn có metadata liên quan, giữ nguyên theo nguyên tắc bảo toàn dữ liệu.
+* Không tự thêm `tpl_type`, `is_answer_richtext` hoặc trường khác nếu nguồn không có.
+
+---
+
+# 11. MRO — SẮP XẾP
+
+```json
+{
+  "ntype": "question",
+  "type": 3,
+  "content": "<p>Sắp xếp các bước theo đúng thứ tự.</p>",
+  "reorders": [
+    {
+      "id": "ro1",
+      "content": "Bước A"
+    },
+    {
+      "id": "ro2",
+      "content": "Bước B"
+    },
+    {
+      "id": "ro3",
+      "content": "Bước C"
+    }
+  ],
+  "answers": [
+    ["ro2"],
+    ["ro1"],
+    ["ro3"]
+  ]
+}
+```
+
+Giữ nguyên ID và mapping nguồn.
+
+Không tự sắp xếp lại.
+
+---
+
+# 12. ESSAY — TỰ LUẬN
+
+LotusLMS sử dụng:
+
+```text
+type: 9
+```
+
+Cấu trúc:
+
+```json
+{
+  "ntype": "question",
+  "type": 9,
+  "content": "<p>Hãy phân tích tổ chức tiến trình hoạt động học tập trong mô hình dạy học theo định hướng phát triển năng lực học sinh?</p>",
+  "sub_type": "normal",
+  "difficulty": 1
+}
+```
+
+Quy tắc:
+
+* `type: 9` là câu tự luận.
+* Giữ `sub_type` nếu nguồn có.
+* Giữ `difficulty` nếu nguồn có.
+* Không tự tạo `answers`.
+* Không tự tạo đáp án mẫu.
+* Không tự tạo lời giải.
+* Không tự tạo rubric.
+* Nếu nguồn có đáp án/hướng dẫn chấm/lời giải/rubric thì giữ nguyên.
+* Nếu có ảnh, nhúng trực tiếp vào `content`.
+
+Ví dụ:
+
+```json
+{
+  "ntype": "question",
+  "type": 9,
+  "content": "<p>Phân tích hình sau:</p><p><img src=\"data:image/png;base64,BASE64_ĐẦY_ĐỦ\"></p>",
+  "sub_type": "normal",
+  "difficulty": 1
+}
+```
+
+---
+
+# 13. TF — ĐÚNG/SAI
+
+LotusLMS:
+
+```text
+type: 18
+```
+
+Giữ cấu trúc:
+
+```text
+likert_questions
+likert_answers
+likert_correct_answers
+```
+
+Ví dụ:
+
+```json
+{
+  "ntype": "question",
+  "type": 18,
+  "content": "<p>Xét tính đúng sai của các khẳng định sau:</p>",
+  "likert_questions": [
+    {
+      "content": "$x^2 \\geq 0$ với mọi $x \\in \\mathbb{R}$",
+      "id": "1"
+    },
+    {
+      "content": "$x^2 < 0$ với mọi $x \\in \\mathbb{R}$",
+      "id": "2"
+    }
+  ],
+  "likert_answers": [
+    {
+      "content": "Đúng",
+      "id": "likert_answers-1"
+    },
+    {
+      "content": "Sai",
+      "id": "likert_answers-2"
+    }
+  ],
+  "likert_correct_answers": [
+    ["0"],
+    ["1"]
+  ]
+}
+```
+
+Không chuyển sang schema generic `statements`.
+
+---
+
+# 14. MP — NỐI CẶP
+
+LotusLMS:
+
+```text
+type: 4
+```
+
+Giữ:
+
+```text
+l_pair
+r_pair
+```
+
+Ví dụ:
+
+```json
+{
+  "ntype": "question",
+  "type": 4,
+  "content": "<p>Nối mỗi đối tượng ở cột A với đối tượng tương ứng ở cột B.</p>",
+  "l_pair": [
+    {
+      "id": "mp1",
+      "content": "Đối tượng A"
+    },
+    {
+      "id": "mp2",
+      "content": "Đối tượng B"
+    }
+  ],
+  "r_pair": [
+    {
+      "id": "mp1",
+      "content": "Đáp án 1"
+    },
+    {
+      "id": "mp2",
+      "content": "Đáp án 2"
+    }
+  ]
+}
+```
+
+Nếu nguồn có mapping đáp án riêng, giữ nguyên mapping.
+
+Không tự giải để tạo mapping.
+
+---
+
+# 15. DDM — DRAG AND DROP
+
+LotusLMS:
+
+```text
+type: 20
+```
+
+Giữ các trường:
+
+```text
+ddm_type
+ddm_insert_mode
+ddm_questions
+ddm_answers
+ddm_correct_answers
+```
+
+Ví dụ:
+
+```json
+{
+  "ntype": "question",
+  "type": 20,
+  "content": "Kéo các đối tượng vào vị trí thích hợp.",
+  "ddm_type": "multiple-questions",
+  "ddm_insert_mode": "simple",
+  "ddm_questions": [
+    {
+      "id": "ddm_questions-1",
+      "content": "Đối tượng A"
+    },
+    {
+      "id": "ddm_questions-2",
+      "content": "Đối tượng B"
+    }
+  ],
+  "ddm_answers": [
+    {
+      "id": "ddm_answers-1",
+      "content": "Vị trí 1"
+    },
+    {
+      "id": "ddm_answers-2",
+      "content": "Vị trí 2"
+    }
+  ],
+  "ddm_correct_answers": [
+    ["0"],
+    ["1"]
+  ]
+}
+```
+
+Không chuyển thành schema generic `items/targets`.
+
+---
+
+# 16. MDDM — MULTIPLE DRAG AND DROP
+
+LotusLMS:
+
+```text
+type: 22
+```
+
+Giữ nguyên các trường `mddm_*` có trong nguồn, ví dụ:
+
+```text
+mddm_question_type
+mddm_question_table_columns
+mddm_question_table_rows
+mddm_single_dropped
+mddm_question_table_data
+mddm_mapping_table_data
+mddm_list_answer
+mddm_question_table_options
+```
+
+Không chuyển MDDM thành schema generic `items/targets`.
+
+Ví dụ:
+
+```json
+{
+  "ntype": "question",
+  "type": 22,
+  "mddm_question_type": "inline",
+  "mddm_question_table_columns": "col 1",
+  "mddm_question_table_rows": "row 1",
+  "mddm_single_dropped": 1,
+  "mddm_question_table_data": {
+    "dataSource": []
+  },
+  "mddm_mapping_table_data": {
+    "firstColumnText": "",
+    "dataSource": []
+  },
+  "mddm_list_answer": [],
+  "mddm_question_table_options": []
+}
+```
+
+---
+
+# 17. HINTS
+
+Nếu nguồn có:
+
+```json
+"hints": [
+  {
+    "name": "<p>Nội dung hint</p>"
+  }
+]
+```
+
+thì giữ nguyên.
+
+Nếu có ảnh, nhúng Base64 trực tiếp trong `name`.
+
+Không tự tạo hint.
+
+---
+
+# 18. SOLUTIONS
+
+Nếu nguồn có:
+
+```json
+"solutions": [
+  {
+    "name": "<p>Nội dung lời giải</p>"
+  }
+]
+```
+
+thì giữ nguyên.
+
+Không tự tạo solution.
+
+Không tự giải câu hỏi.
+
+Nếu solution có ảnh, nhúng Base64 trực tiếp trong `name`.
+
+---
+
+# 19. METADATA
+
+Nếu nguồn có các trường:
+
+```text
+difficulty
+tags
+display_template
+shufflable
+score_formula
+reorder_type
+is_answer_richtext
+tpl_type
+sub_type
+```
+
+thì giữ nguyên.
+
+Không tự suy luận giá trị nếu nguồn không có.
+
+---
+
+# 20. ID
+
+Nếu nguồn có ID, phải giữ nguyên.
+
+Ví dụ:
+
+```text
+ro1
+ro2
+mp1
+mp2
+ddm_questions-1
+ddm_answers-1
+mddm_list_answer-1
+likert_questions-1
+```
+
+Không tự đổi ID.
+
+---
+
+# 21. LOẠI BỎ CÂU HỎI TRÙNG
+
+Kiểm tra trùng trên **toàn bộ tài liệu**.
+
+Chỉ loại câu khi xác định chắc chắn là cùng một câu hỏi.
+
+Có thể bỏ qua khác biệt:
+
+* số thứ tự;
+* khoảng trắng;
+* xuống dòng;
+* HTML không có ý nghĩa;
+* định dạng trình bày.
+
+Nếu nội dung câu hỏi, dữ kiện và phương án thực chất giống nhau → giữ câu xuất hiện đầu tiên và loại câu sau.
+
+Nếu chỉ cùng chủ đề hoặc tương tự nhưng khác yêu cầu/dữ kiện/hình ảnh → **không loại**.
+
+Nếu không chắc chắn → giữ cả hai và `WARNING`.
+
+---
+
+# 22. QUY TẮC ĐÁP ÁN
+
+Chỉ lấy đáp án từ tài liệu nguồn.
+
+Không:
+
+* tự giải;
+* tự suy luận;
+* tự sửa;
+* tự thay đổi đáp án.
+
+Nếu không có hoặc không xác định được đáp án:
+
+```text
+null + WARNING
+```
+
+Nếu nguồn có đáp án sai:
+
+> Giữ nguyên đáp án nguồn và ghi `WARNING`.
+
+---
+
+# 23. XỬ LÝ DỮ LIỆU KHÔNG XÁC ĐỊNH
+
+Không được đoán.
+
+Nếu không xác định được:
+
+```text
+null + WARNING
+```
+
+Nếu không thể bảo toàn dữ liệu bắt buộc:
+
+```text
+ERROR
+```
+
+Không tự tạo dữ liệu thay thế.
+
+---
+
+# 24. CẤU TRÚC FILE JSON
+
+File cuối cùng:
+
+```json
+{
+  "schema_version": "1.0",
+  "source": {
+    "file_name": "ten_file_nguon"
+  },
+  "questions": [],
+  "report": {
+    "total_questions_source": 0,
+    "total_questions_output": 0,
+    "duplicate_questions_removed": 0,
+    "by_type": {
+      "MC": 0,
+      "MMC": 0,
+      "SA": 0,
+      "FILL": 0,
+      "TF": 0,
+      "ESSAY": 0,
+      "MP": 0,
+      "MDDM": 0,
+      "DDM": 0,
+      "MRO": 0
+    },
+    "total_images": 0,
+    "valid_images": 0,
+    "image_errors": 0,
+    "warnings": [],
+    "errors": []
+  }
+}
+```
+
+`questions[]` chứa toàn bộ câu hỏi sau khi loại câu trùng.
+
+---
+
+# 25. KIỂM TRA TRƯỚC KHI XUẤT
+
+Bắt buộc kiểm tra:
+
+### Câu hỏi
+
+* [ ] Đủ câu hỏi.
+* [ ] Đúng thứ tự.
+* [ ] Không bỏ sót.
+* [ ] Không trùng sau khi dedup.
+* [ ] Đúng loại.
+* [ ] Đúng `type`.
+
+### Nội dung
+
+* [ ] Đủ nội dung.
+* [ ] Không rút gọn.
+* [ ] Không diễn giải.
+* [ ] Không tự sửa.
+* [ ] HTML/Rich Text được bảo toàn.
+
+### Phương án
+
+* [ ] Đủ phương án.
+* [ ] Đúng thứ tự.
+* [ ] Đúng nội dung.
+* [ ] Đúng đáp án nguồn.
+* [ ] Đúng hình ảnh.
+
+### Công thức
+
+* [ ] Không mất công thức.
+* [ ] Không mất số mũ.
+* [ ] Không mất chỉ số.
+* [ ] Không mất phân số.
+* [ ] Không mất căn.
+* [ ] Không mất ký hiệu toán học.
+
+### Hình ảnh
+
+* [ ] Đủ hình ảnh.
+* [ ] Đúng câu.
+* [ ] Đúng vị trí.
+* [ ] Base64 đầy đủ.
+* [ ] MIME type chính xác.
+* [ ] Không có URL ảnh ngoài.
+* [ ] Không có placeholder.
+
+### JSON
+
+* [ ] JSON hợp lệ.
+* [ ] Không trailing comma.
+* [ ] Không placeholder.
+* [ ] Không dữ liệu tự tạo.
+* [ ] Encoding chính xác.
+
+---
+
+# 26. KIỂM TRA RIÊNG ĐỐI VỚI WORD
+
+Nếu nguồn là Word:
+
+```text
+Số trang Word ↔ Số trang PDF
+Số câu nguồn ↔ Số câu JSON trước dedup
+Số hình ảnh nguồn ↔ Số hình ảnh JSON
+```
+
+Nếu sai lệch:
+
+```text
+WARNING
+```
+
+Nếu mất dữ liệu:
+
+```text
+ERROR
+```
+
+Không tự bù dữ liệu.
+
+---
+
+# 27. FILE ĐẦU RA
+
+Bắt buộc tạo **file JSON thực tế** để người dùng tải xuống.
+
+Tên file:
+
+```text
+<ten_file_nguon>_converted.json
+```
+
+Ví dụ:
+
+```text
+de-thi-toan-10_converted.json
+```
+
+Không chỉ hiển thị JSON trong câu trả lời.
+
+---
+
+# 28. BÁO CÁO SAU KHI XỬ LÝ
+
+Sau khi tạo file, báo cáo:
+
+```text
+Tổng số câu nguồn: ...
+Số câu trùng đã loại: ...
+Tổng số câu xuất JSON: ...
+
+MC: ...
+MMC: ...
+SA: ...
+FILL: ...
+TF: ...
+ESSAY: ...
+MP: ...
+MDDM: ...
+DDM: ...
+MRO: ...
+
+Tổng số hình ảnh: ...
+Hình ảnh hợp lệ: ...
+Hình ảnh lỗi: ...
+
+Cảnh báo: ...
+Lỗi: ...
+```
+
+---
+
+# 29. ƯU TIÊN TUYỆT ĐỐI
+
+```text
+1. Bảo toàn dữ liệu nguồn
+2. Bảo toàn hình ảnh
+3. Bảo toàn công thức
+4. Bảo toàn đáp án
+5. Bảo toàn HTML/Rich Text
+6. Bảo toàn cấu trúc LotusLMS
+7. Loại câu trùng chính xác
+8. Bảo toàn thứ tự
+9. JSON hợp lệ
+10. Báo cáo kiểm tra
+```
+
+**Không tự sửa.**
+
+**Không tự giải.**
+
+**Không tự tạo dữ liệu.**
+
+**Không bỏ sót.**
+
+**Không xóa câu nếu chưa chắc chắn là câu trùng.**
+
+**Ưu tiên cao nhất: bảo toàn nguyên bản câu hỏi, công thức, phương án, đáp án, hình ảnh và cấu trúc LotusLMS.**
+
+Yêu cầu bổ sung: Giải bài và thêm đáp án cho câu hỏi không có thông tin về đáp án.
+        </script>
+
+        <script>
+            // Khởi tạo icons
+            lucide.createIcons();
+
+            document.addEventListener('DOMContentLoaded', () => {
+                // ==========================================
+                // LOGIC COPY PROMPT
+                // ==========================================
+                const rawPrompt = document.getElementById('raw-prompt-data').textContent.trim();
+                const displayArea = document.getElementById('promptDisplay');
+                const copyBtn = document.getElementById('copyBtn');
+                const copyIcon = document.getElementById('copyIcon');
+                const copyText = document.getElementById('copyText');
+
+                // Hiển thị nội dung
+                displayArea.textContent = rawPrompt;
+
+                copyBtn.addEventListener('click', () => {
+                    const tempTextArea = document.createElement('textarea');
+                    tempTextArea.value = rawPrompt;
+                    document.body.appendChild(tempTextArea);
+                    tempTextArea.select();
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (successful) {
+                            copyBtn.classList.remove('bg-white/10', 'hover:bg-white/20');
+                            copyBtn.classList.add('bg-green-500/20', 'text-green-400');
+                            copyIcon.setAttribute('data-lucide', 'check');
+                            copyText.textContent = 'Đã Copy!';
+                            lucide.createIcons();
+
+                            setTimeout(() => {
+                                copyBtn.classList.add('bg-white/10', 'hover:bg-white/20');
+                                copyBtn.classList.remove('bg-green-500/20', 'text-green-400');
+                                copyIcon.setAttribute('data-lucide', 'copy');
+                                copyText.textContent = 'Copy Prompt';
+                                lucide.createIcons();
+                            }, 2000);
+                        } else {
+                            throw new Error('Copy failed');
+                        }
+                    } catch (err) {
+                        copyBtn.classList.add('bg-red-500/20', 'text-red-400');
+                        copyText.textContent = 'Lỗi Copy';
+                        setTimeout(() => {
+                            copyBtn.classList.remove('bg-red-500/20', 'text-red-400');
+                            copyText.textContent = 'Copy Prompt';
+                        }, 2000);
+                    }
+                    document.body.removeChild(tempTextArea);
+                });
+
+                // ==========================================
+                // LOGIC UPLOAD JSON
+                // ==========================================
+                const dropzone = document.getElementById('dropzone');
+                const fileInput = document.getElementById('fileInput');
+                const uploadInitialState = document.getElementById('uploadInitialState');
+                const uploadSelectedState = document.getElementById('uploadSelectedState');
+                const fileNameDisplay = document.getElementById('fileNameDisplay');
+                const fileMessageDisplay = document.getElementById('fileMessageDisplay');
+                const resetFileBtn = document.getElementById('resetFileBtn');
+                const submitBtn = document.getElementById('submitBtn');
+                const submitIcon = document.getElementById('submitIcon');
+                const submitText = document.getElementById('submitText');
+                
+                const errorMessageContainer = document.getElementById('errorMessageContainer');
+                const errorMessageText = document.getElementById('errorMessageText');
+                
+                const resultsArea = document.getElementById('resultsArea');
+                const resultHeader = document.getElementById('resultHeader');
+                const resultIcon = document.getElementById('resultIcon');
+                const resultTitle = document.getElementById('resultTitle');
+                const resultMessage = document.getElementById('resultMessage');
+                const responseOutput = document.getElementById('responseOutput');
+
+                let currentQuestionsData = null;
+
+                // Xử lý kéo thả và click chọn file
+                dropzone.addEventListener('click', (e) => {
+                    if (e.target !== resetFileBtn) {
+                        fileInput.click();
+                    }
+                });
+
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.add('border-blue-400', 'bg-blue-50/50');
+                });
+
+                dropzone.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-blue-400', 'bg-blue-50/50');
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.classList.remove('border-blue-400', 'bg-blue-50/50');
+                    if (e.dataTransfer.files.length) {
+                        handleFile(e.dataTransfer.files[0]);
+                    }
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length) {
+                        handleFile(e.target.files[0]);
+                    }
+                });
+
+                resetFileBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    resetFileInput();
+                });
+
+                function handleFile(file) {
+                    hideError();
+                    hideResults();
+                    
+                    if (!file.name.endsWith('.json')) {
+                        showError('Vui lòng chọn file định dạng .json');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const json = JSON.parse(e.target.result);
+                            
+                            if (json && json.questions && Array.isArray(json.questions)) {
+                                currentQuestionsData = json.questions;
+                                
+                                // Cập nhật UI
+                                fileNameDisplay.textContent = file.name;
+                                fileMessageDisplay.textContent = `Đã tải thành công ${json.questions.length} câu hỏi.`;
+                                
+                                uploadInitialState.classList.add('hidden');
+                                uploadSelectedState.classList.remove('hidden');
+                                dropzone.classList.add('border-green-200', 'bg-green-50/30');
+                                dropzone.classList.remove('hover:border-neutral-300', 'hover:bg-neutral-50/50');
+                                
+                                enableSubmitBtn();
+                            } else {
+                                showError('File JSON không hợp lệ. Không tìm thấy mảng "questions".');
+                                resetFileInput();
+                            }
+                        } catch (err) {
+                            showError('Lỗi khi đọc file JSON. Vui lòng kiểm tra lại định dạng file.');
+                            resetFileInput();
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+
+                function resetFileInput() {
+                    fileInput.value = '';
+                    currentQuestionsData = null;
+                    
+                    uploadInitialState.classList.remove('hidden');
+                    uploadSelectedState.classList.add('hidden');
+                    dropzone.classList.remove('border-green-200', 'bg-green-50/30');
+                    dropzone.classList.add('hover:border-neutral-300', 'hover:bg-neutral-50/50');
+                    
+                    disableSubmitBtn();
+                }
+
+                function showError(msg) {
+                    errorMessageText.textContent = msg;
+                    errorMessageContainer.classList.remove('hidden');
+                }
+
+                function hideError() {
+                    errorMessageContainer.classList.add('hidden');
+                }
+
+                function showResults(isSuccess, title, msg, data) {
+                    resultsArea.classList.remove('hidden');
+                    resultTitle.textContent = title;
+                    resultMessage.textContent = msg;
+                    
+                    if (isSuccess) {
+                        resultHeader.className = 'mb-4 flex items-center gap-2 text-green-700';
+                        resultIcon.setAttribute('data-lucide', 'check-circle-2');
+                        responseOutput.className = 'text-[11px] text-green-400 font-mono leading-relaxed whitespace-pre-wrap';
+                    } else {
+                        resultHeader.className = 'mb-4 flex items-center gap-2 text-red-700';
+                        resultIcon.setAttribute('data-lucide', 'alert-circle');
+                        responseOutput.className = 'text-[11px] text-red-400 font-mono leading-relaxed whitespace-pre-wrap';
+                    }
+                    
+                    responseOutput.textContent = data ? JSON.stringify(data, null, 2) : 'Không có dữ liệu phản hồi.';
+                    lucide.createIcons();
+                }
+
+                function hideResults() {
+                    resultsArea.classList.add('hidden');
+                }
+
+                function enableSubmitBtn() {
+                    submitBtn.disabled = false;
+                    submitBtn.className = 'flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all bg-neutral-900 text-white hover:bg-neutral-800 active:scale-95 shadow-sm';
+                }
+
+                function disableSubmitBtn() {
+                    submitBtn.disabled = true;
+                    submitBtn.className = 'flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all bg-neutral-100 text-neutral-400 cursor-not-allowed';
+                }
+
+                function setSubmitLoading(isLoading) {
+                    if (isLoading) {
+                        submitBtn.disabled = true;
+                        submitBtn.className = 'flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all bg-neutral-100 text-neutral-400 cursor-not-allowed';
+                        submitIcon.innerHTML = '<span class="spinner"></span>';
+                        submitText.textContent = 'Đang gửi...';
+                    } else {
+                        enableSubmitBtn();
+                        submitIcon.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i>';
+                        submitText.textContent = 'Gửi Request';
+                        lucide.createIcons();
+                    }
+                }
+
+                // Xử lý gửi Form
+                document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const token = document.getElementById('token').value.trim();
+                    const uiid = document.getElementById('uiid').value.trim();
+                    const bankIid = document.getElementById('bankIid').value.trim();
+
+                    if (!token || !uiid || !bankIid) {
+                        showError('Vui lòng điền đầy đủ các thông tin cấu hình (Token, UIID, Bank IID).');
+                        return;
+                    }
+
+                    if (!currentQuestionsData) {
+                        showError('Vui lòng tải lên file JSON hợp lệ trước khi gửi.');
+                        return;
+                    }
+
+                    hideError();
+                    hideResults();
+                    setSubmitLoading(true);
+
+                    const payload = {
+                        token: token,
+                        uiid: uiid,
+                        bankIid: bankIid,
+                        questionsData: currentQuestionsData
+                    };
+
+                    try {
+                        const response = await fetch('https://docx-to-json.octopuslab.io.vn/upload-questions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(payload),
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+
+                        if (response.ok) {
+                            showResults(true, 'Thành công', 'Dữ liệu đã được gửi lên server.', data);
+                        } else {
+                            showResults(false, 'Thất bại', `Lỗi Server: ${response.status} ${response.statusText}`, data);
+                        }
+                    } catch (err) {
+                        showResults(false, 'Lỗi kết nối', err.message, null);
+                    } finally {
+                        setSubmitLoading(false);
+                    }
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>
