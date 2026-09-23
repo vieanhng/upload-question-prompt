@@ -936,7 +936,7 @@ Không đưa nhãn `A/B/C/D` vào `answers[].text`.
 LotusLMS:
 
 ```text
-type: 1
+type: 23
 ```
 
 Schema:
@@ -1893,6 +1893,8 @@ JSON
 
 **Không được làm mất bất kỳ dữ liệu nào có ý nghĩa đối với việc sử dụng câu hỏi trong LotusLMS.**
 
+**Mỗi lần sửa cần tạo tên file json phiên bản mới để tránh cache**
+
         </script>
 
   <script>
@@ -2452,8 +2454,8 @@ JSON
                   </div>
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     ${blanks.map((b, bIdx) => {
-                      const variants = Array.isArray(b) ? b : [b];
-                      return `
+                const variants = Array.isArray(b) ? b : [b];
+                return `
                         <div class="p-2.5 rounded-lg bg-teal-50/70 border border-teal-200 text-teal-900 text-xs flex items-center gap-2">
                           <span class="px-1.5 py-0.5 rounded bg-teal-200 text-teal-900 font-bold text-[11px] shrink-0">Ô ${bIdx + 1}</span>
                           <div class="flex flex-wrap gap-1.5">
@@ -2461,7 +2463,7 @@ JSON
                           </div>
                         </div>
                       `;
-                    }).join('')}
+              }).join('')}
                   </div>
                 </div>
               `;
